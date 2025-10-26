@@ -1,0 +1,32 @@
+# Dependencies
+node_modules
+dist
+.astro
+
+
+# Git
+.git
+.gitignore
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Cache
+.bun
+.temp
+
+# Documentation
+README.md
+LICENSE

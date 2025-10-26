@@ -1,6 +1,6 @@
 ---
 avatarImage:
-  src: ./Fractal-Tess.png
+  src: ./avatar.jpg
   alt: 'Fractal Tess avatar'
 githubCalendar: 'fractal-tess'
 ---

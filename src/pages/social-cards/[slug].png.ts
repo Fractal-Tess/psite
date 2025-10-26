@@ -31,16 +31,21 @@ const defaultTheme =
     ? siteConfig.themes.include[0]
     : siteConfig.themes.default
 
-const themeStyles = await resolveThemeColorStyles(
-  [defaultTheme],
-  siteConfig.themes.overrides,
-)
-const bg = themeStyles[defaultTheme]?.background
-const fg = themeStyles[defaultTheme]?.foreground
-const accent = themeStyles[defaultTheme]?.accent
+let bg: string | undefined
+let fg: string | undefined
+let accent: string | undefined
 
-if (!bg || !fg || !accent) {
-  throw new Error(`Theme ${defaultTheme} does not have required colors`)
+try {
+  const themeStyles = await resolveThemeColorStyles(
+    [defaultTheme],
+    siteConfig.themes.overrides,
+  )
+  bg = themeStyles[defaultTheme]?.background
+  fg = themeStyles[defaultTheme]?.foreground
+  accent = themeStyles[defaultTheme]?.accent
+} catch (error) {
+  console.warn(`Failed to resolve theme colors for ${defaultTheme}:`, error)
+  // Fallback colors will be used in markup function
 }
 
 const ogOptions: SatoriOptions = {
@@ -57,36 +62,72 @@ const ogOptions: SatoriOptions = {
   width: 1200,
 }
 
-const markup = (title: string, pubDate: string | undefined, author: string) =>
-  html(`<div tw="flex flex-col max-w-full justify-center h-full bg-[${bg}] text-[${fg}] p-12">
-    <div style="border-width: 12px; border-radius: 80px;" tw="flex items-center max-w-full p-8 border-[${accent}]/30">
-      ${
-        avatarBase64
-          ? `<div tw="flex flex-col justify-center items-center w-1/3 h-100">
-            <img src="${avatarBase64}" tw="flex w-full rounded-full border-[${accent}]/30" />
-        </div>`
-          : ''
-      }
-      <div tw="flex flex-1 flex-col max-w-full justify-center items-center">
-        ${pubDate ? `<p tw="text-3xl max-w-full text-[${accent}]">${pubDate}</p>` : ''}
-        <h1 tw="text-6xl my-14 text-center leading-snug">${title}</h1>
-        ${author !== title ? `<p tw="text-4xl text-[${accent}]">${author}</p>` : ''}
-      </div>
-    </div>
-  </div>`)
+const markup = (title: string, pubDate: string | undefined, author: string) => {
+  // Ensure we have fallback colors if theme resolution fails
+  const safeBg = bg || '#1a1a1a'
+  const safeFg = fg || '#ffffff'
+  const safeAccent = accent || '#3b82f6'
+
+  // Build the HTML structure step by step to avoid template literal issues
+  let content = `<div style="display: flex; flex-direction: column; max-width: 100%; justify-content: center; height: 100%; background-color: ${safeBg}; color: ${safeFg}; padding: 48px;">`
+
+  content += `<div style="border-width: 12px; border-radius: 80px; display: flex; align-items: center; max-width: 100%; padding: 32px; border-color: ${safeAccent}33;">`
+
+  if (avatarBase64) {
+    content += `<div style="display: flex; flex-direction: column; justify-content: center; align-items: center; width: 33.33%; height: 100%;">`
+    content += `<img src="${avatarBase64}" style="display: flex; width: 100%; border-radius: 50%; border-color: ${safeAccent}33; border-width: 2px;" />`
+    content += `</div>`
+  }
+
+  content += `<div style="display: flex; flex: 1; flex-direction: column; max-width: 100%; justify-content: center; align-items: center;">`
+
+  if (pubDate) {
+    content += `<p style="font-size: 48px; max-width: 100%; color: ${safeAccent}; margin: 0;">${pubDate}</p>`
+  }
+
+  content += `<h1 style="font-size: 96px; margin: 56px 0; text-align: center; line-height: 1.2;">${title}</h1>`
+
+  if (author !== title) {
+    content += `<p style="font-size: 64px; color: ${safeAccent}; margin: 0;">${author}</p>`
+  }
+
+  content += `</div></div></div>`
+
+  return html(content)
+}
 
 type Props = InferGetStaticPropsType<typeof getStaticPaths>
 
 export async function GET(context: APIContext) {
   const { pubDate, title, author } = context.props as Props
-  const svg = await satori(markup(title, pubDate, author) as ReactNode, ogOptions)
-  const png = new Resvg(svg).render().asPng()
-  return new Response(new Uint8Array(png), {
-    headers: {
-      'Cache-Control': 'public, max-age=31536000, immutable',
-      'Content-Type': 'image/png',
-    },
-  })
+
+  try {
+    const svg = await satori(markup(title, pubDate, author) as ReactNode, ogOptions)
+    const png = new Resvg(svg).render().asPng()
+    return new Response(new Uint8Array(png), {
+      headers: {
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Content-Type': 'image/png',
+      },
+    })
+  } catch (error) {
+    console.error('Failed to generate social card:', error)
+    // Return a minimal 1x1 transparent PNG as fallback
+    const fallbackPng = Buffer.from([
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D,
+      0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+      0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xDE, 0x00, 0x00, 0x00,
+      0x0C, 0x49, 0x44, 0x41, 0x54, 0x08, 0x57, 0x63, 0xF8, 0x0F, 0x00, 0x00,
+      0x01, 0x00, 0x01, 0x5C, 0xC6, 0x2F, 0x73, 0x00, 0x00, 0x00, 0x00, 0x49,
+      0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82
+    ])
+    return new Response(fallbackPng, {
+      headers: {
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Content-Type': 'image/png',
+      },
+    })
+  }
 }
 
 export async function getStaticPaths() {
