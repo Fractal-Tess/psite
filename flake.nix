@@ -26,41 +26,7 @@
             " | ${pkgs.lolcat}/bin/lolcat
           '';
           packages = with pkgs; [
-
-            # Node.js (specified by overlay)
             bun
-            # nodejs
-            # deno
-
-            # Package managers
-            # pnpm
-            # yarn
-            # npm
-
-            # Formatting & Linting
-            prettierd
-            eslint
-            # biome
-
-            # Additional tools
-            # npkill
-            gh
-            # flyctl
-
-            # LSP
-            # svelte-language-server
-            # emmet-language-server
-            # tailwindcss-language-server
-            # typescript-language-server
-            # astro-language-server
-            vscode-langservers-extracted
-
-            # DevOps
-            docker-compose-language-service
-            dockerfile-language-server
-
-            # Programming Languages
-            nginx-language-server
           ];
         };
       });
